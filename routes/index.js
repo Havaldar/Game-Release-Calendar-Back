@@ -3,12 +3,10 @@ const router = express.Router();
 
 /* postgres library for querying db. */
 const knex = require('knex')({
-  client: 'pg',
+  client: 'sqlite3',
   version: '7.2',
   connection: {
-    host : '127.0.0.1',
-    user : 'abhinav',
-    database : 'games'
+    filename: "./dev.sqlite3"
   }
 });
 /* GET home page. */

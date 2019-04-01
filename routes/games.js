@@ -31,6 +31,7 @@ const getResourceById = (resourceName, targetField, processField) => (resourceId
 				},
 				data: `fields id,${targetField}; where id = (${segment.join(',')}); limit 50;`,
 			}).then(response => {
+				console.log(resourceName, targetField, resourceIdList);
 				resolve(response.data);
 			}).catch(err => {
 				reject(err)
@@ -55,6 +56,7 @@ const getPlatformsById = getResourceById('platforms', 'name', field => field);
 const getCoverById = getResourceById('covers', 'url', field => field.slice(2));
 
 router.post('/gamesForMonth', function(req, res, next){
+	console.log(req.body.start, req.body.end);
 	axios({
 		url: "https://api-v3.igdb.com/games",
 		method: 'POST',
@@ -73,6 +75,8 @@ router.post('/gamesForMonth', function(req, res, next){
 				game.platforms.forEach(platformId => {
 					platformIds[platformId] = true;
 				});
+			}
+			if (game.cover) {
 				coverIds[game.cover] = true;
 			}
 		});
@@ -86,12 +90,9 @@ router.post('/gamesForMonth', function(req, res, next){
 					cover: coverById[game.cover]
 				}));
 				res.json(result);
-			});
-		});
-  	})
-	.catch(err => {
-		console.error(err);
-	});
+			}).catch(err => {console.error(err)});
+		}).catch(err => {console.error(err)});
+  	}).catch(err => {console.error(err)});
 });
 
 module.exports = router;

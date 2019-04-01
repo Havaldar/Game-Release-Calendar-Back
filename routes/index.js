@@ -9,8 +9,19 @@ const knex = require('knex')({
     filename: "./dev.sqlite3"
   }
 });
+
+
+router.get('/', function(req,res, next){
+  res.send("API is working");
+});
+
+
+
+
+
 /* GET home page. */
-router.get('/', function(req, res, next) {
+router.get('/originalHome', function(req, res, next) {
+  console.log();
   res.render('index', { title: 'Express' });
 });
 

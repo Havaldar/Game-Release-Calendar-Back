@@ -2,7 +2,108 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const config = require('../config');
+const requestCounter = require('../utils/requestCounter');
+const nodeSchedule = require('node-schedule');
+var knex = require('knex')({
+	client: 'sqlite3',
+	connection: {
+		filename: '../dev.sqlite3'
+	}
+});
 
+const igdbApiCounter = new requestCounter.RequestCounter(10000, 31);
+
+
+const loadResourcesFromIgdb = (igdbResourceName, resourceName) => () => {
+	if (!igdbApiCounter.canRequest(4)) {
+		return;
+	}
+	igdbApiCounter.makeRequest(4);
+	const limit = 50;
+	return Promise.all([0, 50, 100, 150].map(offset => {
+		return axios({
+			url: `https://api-v3.igdb.com/${igdbResourceName}`,
+			method: 'POST',
+			headers: {
+				'Accept': 'application/json',
+				'user-key': '459cdc689a17f4b90ce4b44270f4c94f',
+			},
+			data: `fields id,name; limit ${limit}; offset ${offset};`,
+		}).then(response => {
+			if (!response || !response.data || !response.data.length) {
+				return new Promise((resolve, reject) => resolve(null));
+			}
+			const resourcesToDelete = response.data.map(resource => resource.id);
+			const resourcesToAdd = response.data.map(resource => ({
+				id: resource.id,
+				name: resource.name
+			}));
+
+			console.log('in response after call');
+			return;
+
+			// return knex(resourceName)
+			// 	.whereIn('id', resourcesToDelete)
+			// 	.del()
+			// 	.then(res => {
+			// 		return knex(resourceName).insert(resourcesToAdd);
+			// 	})
+			// 	.catch(err => console.error(err));
+		})
+		.then(msg => {
+			console.log("Finished Loading " + resourceName);
+			return new Promise(resolve => resolve(resourceName));
+		})
+		.catch(err => console.error(err));
+	}));
+};
+
+const loadPlatformsFromIgdb = loadResourcesFromIgdb('platforms', 'platform');
+
+const loadGenresFromIgdb = loadResourcesFromIgdb('genres', 'genre');
+
+const loadAllResourcesFromIgdb = () => {
+	loadPlatformsFromIgdb().then(msg => {
+		console.log(msg);
+		return loadGenresFromIgdb();
+	}).then(msg => {
+		console.log(msg);
+	}).catch(err => {
+		console.error(err);
+	});
+	
+}
+
+
+
+
+// Get Games from Our Database:
+const getGamesByIds = (gameIds) => {
+
+	knex
+		.from('game')
+		.select('*')
+
+
+
+
+
+
+};
+
+
+
+// Platforms from Our Database:
+var loadFromIgdbJob = nodeSchedule.scheduleJob('* * * 1 * *', loadAllResourcesFromIgdb);
+
+
+
+
+/**
+* Wrapper for getting games from EITHER IGDB OR our database
+**/
+
+//Get Request Data Formatting
 function getSegmentedList(list, capacity=10) {
 	let segmentedList = [];
 	for (let i = 0; i < list.length / capacity; i++) {
@@ -50,12 +151,17 @@ const getResourceById = (resourceName, targetField, processField) => (resourceId
 			resolve(resourceById);
 		});
 	});	
-}	
+};
 
 const getPlatformsById = getResourceById('platforms', 'name', field => field);
 const getCoverById = getResourceById('covers', 'url', field => field.slice(2));
 
+
+
+// Caching
+
 router.post('/gamesForMonth', function(req, res, next){
+	
 	console.log(req.body.start, req.body.end);
 	axios({
 		url: "https://api-v3.igdb.com/games",
@@ -95,4 +201,5 @@ router.post('/gamesForMonth', function(req, res, next){
   	}).catch(err => {console.error(err)});
 });
 
-module.exports = router;
+
+module.exports = { router, loadAllResourcesFromIgdb };
